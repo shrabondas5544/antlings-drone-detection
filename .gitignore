@@ -13,6 +13,7 @@ outputs/images/*.jpg
 outputs/videos/*.mp4
 outputs/tracking/*.mp4
 drone_sample.mp4
+demonstration.mp4
 
 # Python
 __pycache__/

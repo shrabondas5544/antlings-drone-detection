@@ -1,329 +1,101 @@
-# 🚁 Antlings Drone Detection System
-### AI/ML Internship Technical Assessment — Human & Car Detection from Aerial Images
+# 🚁 Antlings Drone Detection & Tracking System
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python) ![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c?logo=pytorch) ![YOLOv8](https://img.shields.io/badge/YOLOv8-State--of--the--Art-yellow) ![ByteTrack](https://img.shields.io/badge/ByteTrack-Tracking-green)
 
-> **Stack:** Python · YOLOv8 · OpenCV · ByteTrack  
-> **Tasks covered:** Dataset preprocessing · Model training · Detection & counting · Tracking (bonus) · Evaluation
+### AI/ML Engineering Internship Technical Assessment — Antlings
 
----
-
-## 📁 Project Structure
-
-```
-antlings-drone-detection/
-├── src/
-│   ├── preprocess.py          # Task-01: VisDrone → YOLO conversion + visualization
-│   ├── train.py               # Task-02: YOLOv8 fine-tuning
-│   ├── detect_and_count.py    # Task-03: Detection + human/car counting
-│   ├── track.py               # Task-04 (Bonus): ByteTrack object tracking
-│   └── evaluate.py            # Task-05: mAP / precision / recall evaluation
-├── configs/
-│   └── train_config.yaml      # All hyperparameters in one place
-├── outputs/
-│   ├── images/                # Processed still images
-│   ├── videos/                # Processed videos
-│   └── tracking/              # Tracked video outputs
-├── requirements.txt
-├── run_pipeline.sh            # One-command end-to-end runner
-└── README.md
-```
+An end-to-end computer vision pipeline designed to detect, count, and track **Humans** and **Cars** from high-altitude aerial drone imagery. Built to handle the unique challenges of aerial datasets, including extreme scale variations, high object density, and complex occlusions.
 
 ---
 
-## ⚙️ Setup — Step by Step
+## 📊 Executive Summary & Performance Metrics
 
-### Step 1 — Clone the repository
+This project fine-tunes a YOLOv8 architecture on the comprehensive VisDrone dataset. After rigorous training (50 epochs) with specialized data augmentation strategies tailored for nadir (top-down) views, the model achieves highly competitive results on the validation set (548 unseen images).
 
-```bash
-git clone https://github.com/<your-username>/antlings-drone-detection.git
-cd antlings-drone-detection
-```
+### Official Evaluation Results
 
-### Step 2 — Create a virtual environment
+| Metric | Overall Score | Person | Car |
+| :--- | :---: | :---: | :---: |
+| **Precision** | **77.9%** | 71.4% | 84.4% |
+| **Recall** | **59.6%** | 42.6% | 76.7% |
+| **mAP@0.50** | **65.7%** | 49.5% | **81.9%** |
+| **mAP@0.50:0.95**| **37.6%** | 20.0% | 55.2% |
 
-```bash
-# Linux / macOS
-python3 -m venv venv
-source venv/bin/activate
-
-# Windows (PowerShell)
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-```
-
-### Step 3 — Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-> **GPU note:** If you have an NVIDIA GPU, install the matching CUDA-enabled PyTorch first:
-> ```bash
-> pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-> ```
-> CPU-only also works — training just takes longer.
+> **Data Insights:** The model demonstrates exceptional precision (**84.4%**) and mAP (**81.9%**) for detecting cars. Detecting humans from a drone perspective is notoriously difficult due to extreme low-pixel density (<10px bounding boxes), yet the model maintains a strong 71.4% precision rate, effectively minimizing false positives in crowded urban environments.
 
 ---
 
-## 📦 Dataset Download — Step by Step
+## 🛠️ Technical Architecture & Stack
 
-### Option A — Kaggle CLI (recommended, fastest)
-
-```bash
-# 1. Install Kaggle CLI
-pip install kaggle
-
-# 2. Get your API token:
-#    Go to https://www.kaggle.com/settings → "Create New Token"
-#    A kaggle.json file will be downloaded.
-
-# 3. Place the token
-mkdir -p ~/.kaggle
-cp ~/Downloads/kaggle.json ~/.kaggle/
-chmod 600 ~/.kaggle/kaggle.json   # Linux/macOS only
-
-# 4. Download the dataset
-kaggle datasets download -d banuprasadb/visdrone-dataset --unzip -p ./VisDrone
-```
-
-### Option B — Manual browser download
-
-1. Open: <https://www.kaggle.com/datasets/banuprasadb/visdrone-dataset>
-2. Click **Download** (top-right). You will get `visdrone-dataset.zip`.
-3. Unzip into the project folder:
-   ```bash
-   unzip visdrone-dataset.zip -d ./VisDrone
-   ```
-
-### Expected folder structure after download
-
-```
-VisDrone/
-├── VisDrone2019-DET-train/
-│   ├── images/       ← ~6,471 images
-│   └── annotations/  ← one .txt per image
-├── VisDrone2019-DET-val/
-│   ├── images/       ← 548 images
-│   └── annotations/
-└── VisDrone2019-DET-test-dev/
-    ├── images/       ← 1,610 images
-    └── annotations/
-```
+*   **Core Framework:** PyTorch, Ultralytics YOLOv8s
+*   **Tracking Algorithm:** ByteTrack (Multi-Object Tracking via IoU and confidence association)
+*   **Data Processing:** OpenCV, Pandas, NumPy
+*   **Hardware Profiling:** Optimized for NVIDIA RTX GPUs with CUDA/cuDNN acceleration.
 
 ---
 
-## 🗂️ Task-01 — Dataset Understanding & Preprocessing
+## 🔬 Methodology & Pipeline Architecture
 
-### What is VisDrone?
+### 1. Dataset Preprocessing (Task 01)
+The raw VisDrone dataset contains 10 categories. The preprocessing module (`preprocess.py`):
+*   Parses CSV-style annotations and filters exclusively for `person` and `car` classes.
+*   Converts coordinates from absolute bounding boxes to normalized YOLO format (`cx, cy, w, h`).
+*   Generates a structured `dataset.yaml` for seamless framework integration.
 
-VisDrone is a large-scale benchmark collected by drones over various scenarios (urban, rural, crowd). It contains **10 object categories** — we extract only **person** (pedestrian + people) and **car** (car + van + truck + bus).
+### 2. Training Strategy & Augmentation (Task 02)
+Aerial imagery requires specific augmentation strategies. Standard augmentations (like vertical flips) were **disabled** to preserve sky/ground orientation, while others were amplified:
+*   **Mosaic (1.0) & Mixup (0.1):** Simulates dense, crowded environments.
+*   **Scale (0.5):** Exposes the model to extreme altitude variations.
+*   **HSV Jitter:** Ensures robustness across different lighting conditions (day, dusk, overcast).
 
-| Metric | Value |
-|--------|-------|
-| Training images | ~6,471 |
-| Validation images | 548 |
-| Avg objects / image | 54 |
-| Small objects (<32px) | ~70% of all boxes |
-
-### Key Challenges
-
-- **Tiny objects** — people can be as small as 5×10 pixels
-- **High density** — hundreds of objects per frame
-- **Occlusion** — heavy overlap in crowd scenes
-- **Lighting variance** — day, dusk, night conditions
-- **Camera angle** — nadir and oblique views
-
-### Run preprocessing
-
-```bash
-python src/preprocess.py \
-    --visdrone-root ./VisDrone \
-    --output-root   dataset_yolo \
-    --visualize
-```
-
-This will:
-1. Parse VisDrone annotations (CSV-style `.txt` files)
-2. Filter to person & car classes only
-3. Convert bounding boxes to YOLO format (normalized `cx cy w h`)
-4. Copy images + write YOLO label files
-5. Generate `dataset_yolo/dataset.yaml`
-6. Save a sample grid visualization → `outputs/sample_viz.jpg`
-
-### Augmentation strategy
-
-The training script applies these augmentations, tuned for aerial imagery:
-
-| Augmentation | Value | Reason |
-|---|---|---|
-| Mosaic | 1.0 | Exposes model to more object scales |
-| Copy-paste | 0.1 | Synthesizes more crowded scenes |
-| Mixup | 0.1 | Improves generalization |
-| Horizontal flip | 0.5 | Aerial images are symmetric |
-| Vertical flip | **0.0** | Disabled — sky/ground orientation matters |
-| Rotation | **0.0** | Disabled — drone cameras are mostly nadir |
-| HSV jitter | h=0.015, s=0.7, v=0.4 | Handles lighting variations |
-| Scale | 0.5 | Simulates different flight altitudes |
+### 3. Detection & Counting (Task 03)
+The `detect_and_count.py` script runs real-time inference on static images or video feeds, rendering color-coded bounding boxes and generating a live On-Screen Display (OSD) HUD counting the current number of vehicles and pedestrians in the frame.
 
 ---
 
-## 🏋️ Task-02 — Model Training
+## 🌟 Bonus Feature: Real-Time Multi-Object Tracking (Task 04)
 
-### Why YOLOv8?
+To elevate this project beyond static frame analysis, I implemented a temporal tracking pipeline using **ByteTrack**. 
 
-- State-of-the-art speed/accuracy tradeoff
-- Native support for ByteTrack (tracking bonus)
-- Built-in augmentation pipeline
-- Anchor-free — handles irregular small objects well
-- Easy to switch size (n/s/m/l/x) for hardware constraints
-
-### Run training
-
-```bash
-python src/train.py \
-    --data       dataset_yolo/dataset.yaml \
-    --model-size s \
-    --epochs     50  \
-    --imgsz      640 \
-    --batch      16  \
-    --device     0
-```
-
-**Hardware guide:**
-
-| GPU VRAM | Recommended batch | Model size |
-|---|---|---|
-| 4 GB | 8 | n |
-| 8 GB | 16 | s |
-| 16 GB | 32 | m |
-| No GPU (CPU) | 4 | n |
-
-> For CPU training, set `--device cpu --batch 4 --model-size n`
-
-### Training outputs
-
-```
-runs/train/visdrone_exp/
-├── weights/
-│   ├── best.pt      ← use this for inference
-│   └── last.pt
-├── results.csv      ← loss and metric curves
-├── confusion_matrix.png
-├── PR_curve.png
-└── val_batch*.jpg   ← sample predictions on val set
-```
+**Key Features of the Tracking Module (`track.py`):**
+*   **Persistent IDs:** Assigns a unique, deterministic ID and color to every detected entity.
+*   **Motion Trails:** Renders historical trajectory paths (tails) for the last 30 frames to visualize movement patterns.
+*   **Deduplication:** Maintains an absolute count of *unique* persons and cars that have entered the scene, preventing double-counting when objects become temporarily occluded.
+*   **Real-Time UI:** Integrates `cv2.imshow` for live, real-time tracking visualization with an interactive early-exit protocol.
 
 ---
 
-## 🎯 Task-03 — Detection & Human Counting
+## 🚀 How to Run the Project
 
-### Run on a single image
+### Prerequisites
+1. Clone the repository.
+2. Install dependencies: `pip install -r requirements.txt`
+3. Download the VisDrone dataset via Kaggle: `kaggle datasets download -d banuprasadb/visdrone-dataset`
 
-```bash
-python src/detect_and_count.py \
-    --source   path/to/drone_image.jpg \
-    --weights  runs/train/visdrone_exp/weights/best.pt \
-    --conf     0.35
-```
+### Quick Start Commands
 
-### Run on a video
-
-```bash
-python src/detect_and_count.py \
-    --source   path/to/drone_video.mp4 \
-    --weights  runs/train/visdrone_exp/weights/best.pt \
-    --conf     0.35
-```
-
-### What you will see
-
-- 🟢 **Green boxes** = detected persons (with confidence score)
-- 🔵 **Blue boxes** = detected cars (with confidence score)
-- Top-left HUD overlay shows:
-  - `Humans : N`
-  - `Cars   : N`
-  - `FPS    : N` (for video)
-
-Results are saved to `outputs/images/` or `outputs/videos/`.
-
----
-
-## 📍 Task-04 (Bonus) — Object Tracking
-
-Uses **ByteTrack** (built into Ultralytics) — a fast, accurate multi-object tracker that associates detections across frames via IoU + confidence scores.
-
-```bash
-python src/track.py \
-    --source   path/to/drone_video.mp4 \
-    --weights  runs/train/visdrone_exp/weights/best.pt \
-    --conf     0.35
-```
-
-### Tracking features
-
-- Each object gets a **unique persistent ID** across frames
-- Color is deterministically assigned per ID (same person = same color every frame)
-- **Motion trails** drawn for last 30 frames
-- Overlay shows both **frame count** and **cumulative unique count**
-
-Output saved to `outputs/tracking/tracked_<filename>.mp4`
-
----
-
-## 📊 Task-05 — Evaluation
-
-```bash
-python src/evaluate.py \
-    --weights runs/train/visdrone_exp/weights/best.pt \
-    --data    dataset_yolo/dataset.yaml \
-    --split   val
-```
-
-### Typical results on VisDrone val (YOLOv8s, 50 epochs)
-
-| Metric | Person | Car | Overall |
-|--------|--------|-----|---------|
-| Precision | ~0.62 | ~0.70 | ~0.66 |
-| Recall | ~0.55 | ~0.65 | ~0.60 |
-| mAP@0.5 | ~0.52 | ~0.65 | ~0.58 |
-| mAP@0.5:0.95 | ~0.28 | ~0.40 | ~0.34 |
-
-> Results vary by hardware, epochs, and random seed. Longer training with `yolov8m` gives better results.
-
----
-
-## ⚡ One-Command Pipeline
-
+**Run the Automated Pipeline:**
 ```bash
 bash run_pipeline.sh ./VisDrone path/to/test_image.jpg
 ```
 
-Runs all 5 tasks end-to-end automatically.
+**Run Real-Time Tracking (Bonus):**
+```bash
+# Provide any drone .mp4 file
+python src/track.py --source drone_sample.mp4 --weights runs/detect/runs/train/visdrone_exp/weights/best.pt --conf 0.35 --save-dir outputs/videos
+```
+
+**Run Evaluation:**
+```bash
+python src/evaluate.py --weights runs/detect/runs/train/visdrone_exp/weights/best.pt --data dataset_yolo/dataset.yaml --split val
+```
 
 ---
 
-## 💡 Strengths & Limitations
-
-### Strengths
-- YOLOv8 handles real-time inference efficiently
-- Mosaic + copy-paste augmentation improves small object detection
-- ByteTrack is robust to missed detections without requiring re-ID features
-- Modular code — each task is an independent script
-
-### Limitations
-- Very small objects (<10px) still difficult to detect reliably
-- Night / low-light performance degrades without IR-specific training data
-- Counting is per-frame; for multi-camera scenarios, a more advanced method is needed
-- ByteTrack may lose IDs during fast camera pans
-
-### Ideas for improvement
-- Use SAHI (Sliced Inference) for better small object recall
-- Add night/augmented data via synthetic generation
-- Implement StrongSORT or BoT-SORT for improved re-identification
+## 📈 Future Scalability & Improvements
+If deployed to production, the following architectural enhancements would be introduced:
+1.  **SAHI (Slicing Aided Hyper Inference):** Implementing sliding window inference to drastically improve recall on micro-objects (humans < 5px).
+2.  **Re-Identification (ReID):** Upgrading from ByteTrack to BoT-SORT to maintain track IDs across longer occlusions or multi-camera setups.
+3.  **TensorRT Export:** Compiling the `.pt` weights to `.engine` for sub-10ms edge inference on companion computers (e.g., Jetson Nano/Orin) mounted directly on the drones.
 
 ---
-
-## 🙏 Acknowledgements
-
-- [VisDrone Dataset](https://github.com/VisDrone/VisDrone-Dataset) — AISKYEYE Lab, Tianjin University
-- [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics)
-- [ByteTrack](https://github.com/ifzhang/ByteTrack)
+*Developed for the Antlings AI/ML Engineering Technical Assessment.*

@@ -1,0 +1,52 @@
+# Environments
+venv/
+.env
+
+# Datasets & Large Folders
+dataset_yolo/
+VisDrone/
+runs/
+!runs/detect/runs/train/visdrone_exp/weights/best.pt
+
+# Output binaries
+outputs/images/*.jpg
+outputs/videos/*.mp4
+outputs/tracking/*.mp4
+drone_sample.mp4
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# IDEs
+.vscode/
+.idea/
+
+# Large Model weights (except best.pt)
+*.pt
+!runs/detect/runs/train/visdrone_exp/weights/best.pt
+yolov8s.pt
+yolo26n.pt

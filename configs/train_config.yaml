@@ -1,0 +1,9 @@
+# Training Configuration
+model_size: s
+epochs: 50
+imgsz: 640
+batch: 8
+device: "0"
+project: runs/train
+name: visdrone_exp
+resume: true
